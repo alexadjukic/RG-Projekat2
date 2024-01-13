@@ -35,6 +35,8 @@ struct Material{ //Materijal objekta
 in vec3 chNor;
 in vec3 chFragPos;
 
+in vec2 chTex;
+
 out vec4 outCol;
 
 uniform Light uLight;
@@ -43,21 +45,51 @@ uniform LightRef uLightRef;
 uniform Material uMaterial;
 uniform vec3 uViewPos;	//Pozicija kamere (za racun spekularne komponente)
 
+uniform bool uTextureEnabled;
+
+uniform sampler2D uTex;
+
 void main()
 {
 	vec3 totalResult = vec3(0.0);
 	//tackasto osvetljenje
-	vec3 resA = uLight.kA * uMaterial.kA;
+	vec3 resA;
+	if (uTextureEnabled)
+	{
+		resA = uLight.kA;
+	}
+	else
+	{
+		resA = uLight.kA * uMaterial.kA;
+	}
 	
 	vec3 normal = normalize(chNor);
 	vec3 lightDirection = normalize(uLight.pos - chFragPos);
 	float nD = max(dot(normal, lightDirection), 0.0);
-	vec3 resD = uLight.kD * ( nD * uMaterial.kD);
+	vec3 resD;
+	if (uTextureEnabled)
+	{
+		resD = uLight.kD * nD;
+	}
+	else
+	{
+		resD = uLight.kD * ( nD * uMaterial.kD);
+	}
+
 	
 	vec3 viewDirection = normalize(uViewPos - chFragPos);
 	vec3 reflectionDirection = reflect(-lightDirection, normal);
 	float s = pow(max(dot(viewDirection, reflectionDirection), 0.0), uMaterial.shine);
-	vec3 resS = uLight.kS * (s * uMaterial.kS);
+	vec3 resS;
+	if (uTextureEnabled)
+	{
+		resS = uLight.kS * s;
+	}
+	else
+	{
+		resS = uLight.kS * (s * uMaterial.kS);
+	}
+
 
 	float distance = length(uLight.pos - chFragPos);
 	float attenuation = 1.0 / (uLight.constant + uLight.linear * distance + uLight.quadratic * (distance * distance));
@@ -69,17 +101,38 @@ void main()
 	totalResult += resA + resD + resS;
 
 	//direkciono osvetljenje
-	resA = uLightDir.kA * uMaterial.kA;
+	if (uTextureEnabled)
+	{
+		resA = uLightDir.kA;
+	}
+	else
+	{
+		resA = uLightDir.kA * uMaterial.kA;
+	}
 
 	normal = normalize(chNor);
 	lightDirection = normalize(-uLightDir.direction);
 	nD = max(dot(normal, lightDirection), 0.0);
-	resD = uLightDir.kD * ( nD * uMaterial.kD);
+	if (uTextureEnabled)
+	{
+		resD = uLightDir.kD * nD;
+	}
+	else
+	{
+		resD = uLightDir.kD * ( nD * uMaterial.kD);
+	}
 	
 	viewDirection = normalize(uViewPos - chFragPos);
 	reflectionDirection = reflect(-lightDirection, normal);
 	s = pow(max(dot(viewDirection, reflectionDirection), 0.0), uMaterial.shine);
-	resS = uLightDir.kS * (s * uMaterial.kS);
+	if (uTextureEnabled)
+	{
+		resS = uLightDir.kS * s;
+	}
+	else
+	{
+		resS = uLightDir.kS * (s * uMaterial.kS);
+	}
 
 	//reflektorsko osvetljenje
 	lightDirection = normalize(uLightRef.position - chFragPos);
@@ -87,25 +140,60 @@ void main()
 
 	if (theta > uLightRef.cutOff)
 	{
-		resA = uLightRef.kA * uMaterial.kA;
+		if (uTextureEnabled)
+		{
+			resA = uLightRef.kA;
+		}
+		else
+		{
+			resA = uLightRef.kA * uMaterial.kA;
+		}
 
 		normal = normalize(chNor);
 		nD = max(dot(normal, lightDirection), 0.0);
-		resD = uLightRef.kD * ( nD * uMaterial.kD);
+		if (uTextureEnabled)
+		{
+			resD = uLightRef.kD * nD;
+		}
+		else
+		{
+			resD = uLightRef.kD * ( nD * uMaterial.kD);
+		}
 
 		viewDirection = normalize(uViewPos - chFragPos);
 		reflectionDirection = reflect(-lightDirection, normal);
 		s = pow(max(dot(viewDirection, reflectionDirection), 0.0), uMaterial.shine);
-		resS = uLightRef.kS * (s * uMaterial.kS);
+		if (uTextureEnabled)
+		{
+			resS = uLightRef.kS * s;
+		}
+		else
+		{
+			resS = uLightRef.kS * (s * uMaterial.kS);
+		}
 
 		totalResult += resA + resD + resS;
 	}
 	else
 	{
-		totalResult += uLightRef.kA * uMaterial.kA;
+		if (uTextureEnabled)
+		{
+			totalResult += uLightRef.kA;
+		}
+		else
+		{
+			totalResult += uLightRef.kA * uMaterial.kA;
+		}
 	}
 
 	totalResult += resA + resD + resS;
 
-	outCol = vec4(totalResult, 0.5); //Fongov model sjencenja
+	if (uTextureEnabled) 
+	{
+		outCol = texture(uTex, chTex) * vec4(totalResult, 1.0);
+	}
+	else 
+	{
+		outCol = vec4(totalResult, 0.5); //Fongov model sjencenja
+	}
 }
